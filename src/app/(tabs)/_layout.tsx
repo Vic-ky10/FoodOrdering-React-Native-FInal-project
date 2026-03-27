@@ -2,10 +2,20 @@ import React from 'react';
 import { SymbolView } from 'expo-symbols';
 import { Link, Tabs } from 'expo-router';
 import { Platform, Pressable } from 'react-native';
-
+import FontAwesome from '@expo/vector-icons/FontAwesome'
 import Colors from '../../constants/Colors';
 import { useColorScheme } from '../../components/useColorScheme';
 import { useClientOnlyValue } from '../../components/useClientOnlyValue';
+
+
+function TabBarIcon(props : {
+  name :React.ComponentProps<typeof FontAwesome> ["name"];
+  color:string;
+
+}) {
+  return <FontAwesome  size={20} style = {{ marginBottom :-3 }} {...props}/>
+}
+
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -18,19 +28,17 @@ export default function TabLayout() {
         // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
       }}>
+
+        <Tabs.Screen name='index'  options={{href:null}}  />
       <Tabs.Screen
-        name="index"
+        name="Menu"
         options={{
-          title: 'Tab One',
+          title: 'Menu',
+          headerShown : false, 
           tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
+            <TabBarIcon  
+              name='cutlery'
+              color={color}
             />
           ),
           headerRight: () => (
@@ -52,17 +60,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="two"
         options={{
-          title: 'Tab Two',
+          title: 'Orders',
           tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
-            />
+           <TabBarIcon 
+              name='list'
+              color={color}
+           />
           ),
         }}
       />
