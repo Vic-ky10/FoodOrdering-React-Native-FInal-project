@@ -1,20 +1,17 @@
-import Colors from "@/src/constants/Colors";
-import { ScrollView, View } from "react-native";
+import { View, Text, FlatList } from "react-native";
 
-import products from "@/assets/data/products";
-import { ProductListItem } from "@/src/components/ProductListItem";
+import products from "@assets/data/products";
+import { ProductListItem } from "@/components/ProductListItem";
+import { Color } from "expo-router";
 
 export default function MenuScreen() {
   return (
-    <ScrollView>
-      <View>
-      <ProductListItem product={products[0]} />
-          <ProductListItem product={products[1]} />
-              <ProductListItem product={products[5]} />
-         
-    </View>
-    
-    </ScrollView>
+    <FlatList
+      data={products}
+      renderItem={({ item }) => <ProductListItem product={item} />}
+      numColumns={2}
+      contentContainerStyle={{ gap:10 , padding:10}}
+      columnWrapperStyle= {{gap:10}}
+    />
   );
 }
-
