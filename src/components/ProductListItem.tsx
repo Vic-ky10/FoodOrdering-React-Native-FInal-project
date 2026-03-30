@@ -7,7 +7,7 @@ type ProductListItemProps = {
   product: Product;
 };
 
-const backupImage =
+export const backupImage =
   "https://notjustdev-dummy.s3.us-east-2.amazonaws.com/food/peperoni.png";
 
 export const ProductListItem = ({ product }: ProductListItemProps) => {
