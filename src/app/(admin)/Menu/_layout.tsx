@@ -4,9 +4,9 @@ import { SymbolView } from "expo-symbols";
 import { Link } from "expo-router";
 import { Pressable } from "react-native";
 import FontAwesome from '@expo/vector-icons/FontAwesome'
-
-
 import Colors from "@/constants/Colors";
+
+
 
 export default function MenuStack() {
   return (
@@ -32,26 +32,7 @@ export default function MenuStack() {
         }}
       />
 
-       <Stack.Screen
-        name="[id]"
-        options={{
-          title: "Menu",
-          headerRight: () => (
-            <Link href="/" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <FontAwesome
-                  name="pencil"
-                    size={25}
-                    tintColor={Colors.light.tint}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
-        }}
-      />
+      
     </Stack>
   );
 }

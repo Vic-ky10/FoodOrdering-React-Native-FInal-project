@@ -1,11 +1,11 @@
-import { StyleSheet, Text, TextInput, View , Image} from "react-native";
+import { StyleSheet, Text, TextInput, View , Image, Alert} from "react-native";
 import React, { useState } from "react";
 import Button from "@/components/Button";
 import { backupImage } from "@/components/ProductListItem";
 import Colors from "@/constants/Colors";
 
 import * as ImagePicker from "expo-image-picker"
-import { Stack } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 
 const CreateProductScreen = () => {
   const [name, setName] = useState("");
@@ -13,15 +13,37 @@ const CreateProductScreen = () => {
   const [errors, setErrors] = useState("");
   const [image, setImage] = useState<string | null>(null);
 
+
+  const {id} = useLocalSearchParams() ;
+  const isUpdating = !!id ; 
+
   const resetFields = () => {
     (setName(""), setPrice(""));
   };
 
+  const onSubmit = () => {
+
+    if(isUpdating){
+        // update
+        onUpdateCreate() 
+    }else {
+        onCreate();
+    }
+  }
+
+   function onUpdateCreate() {
+    if (!validateInput()) {
+      return;
+    }
+    Alert.alert("Updating product :  ", name)
+
+    resetFields();
+  }
   function onCreate() {
     if (!validateInput()) {
       return;
     }
-    console.log("creating product : ", name, price);
+ Alert.alert("Creating  product :", name )
 
     resetFields();
   }
@@ -60,7 +82,7 @@ const CreateProductScreen = () => {
   return (
     <View style={styles.container}>
 
-       <Stack.Screen  options={{title : 'Create Product'}}/>        
+       <Stack.Screen  options={{title : isUpdating ? 'Update Product':'Create Product'}}/>        
         <Image  source ={{ uri: image ||backupImage}} style ={styles.image} />
         <Text onPress={pickImage} style={styles.textButton}> Select Image </Text>
       <Text style={styles.label}>Name</Text>
@@ -74,13 +96,14 @@ const CreateProductScreen = () => {
       <Text style={styles.label}>Price</Text>
       <TextInput
         value={price}
-        placeholder="Enter Pr ice"
+        placeholder="Enter Price"
         style={styles.input}
         keyboardType="numeric"
         onChangeText={setPrice}
       />
       <Text style={{ color: "red" }}>{errors}</Text>
-      <Button onPress={onCreate} text="click" />
+      <Button onPress={onSubmit} text={isUpdating ? "Update" : "Create"} />
+      
     </View>
   );
 };

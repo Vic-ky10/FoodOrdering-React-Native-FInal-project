@@ -137,6 +137,10 @@ import { PizzaSize } from "@assets/types";
 import { backupImage } from "@/components/ProductListItem";
 import Button from "@/components/Button";
 import { useCart } from "@/Providers/CartProvider";
+import FontAwesome from '@expo/vector-icons/FontAwesome'
+import { Link } from "expo-router";
+import Colors from "@/constants/Colors";
+
 
 const sizes: PizzaSize[] = ["S", "M", "L", "XL"];
 
@@ -161,7 +165,6 @@ const ProductDetailsScreen = () => {
     );
   }
 
- 
   const addToCart = () => {
     if (!selectedSize) {
       Alert.alert("Select a size", "Please choose a pizza size first.");
@@ -182,6 +185,28 @@ const ProductDetailsScreen = () => {
 
   return (
     <View style={styles.container}>
+  
+       <Stack.Screen
+ 
+        options={{
+          title: "Menu",
+          headerRight: () => (
+            <Link href={`/(admin)/Menu/create?id=${id}`} asChild>
+        
+              <Pressable style={{ marginRight: 15 }}>
+                {({ pressed }) => (
+                  <FontAwesome
+                  name="pencil"
+                    size={25}
+                    color={Colors.light.tint}
+                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
+                  />
+                )}
+              </Pressable>
+            </Link>
+          ),
+        }}
+      />
       <Stack.Screen options={{ title: product.name }} />
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -194,16 +219,8 @@ const ProductDetailsScreen = () => {
         <View style={styles.infoBlock}>
           <Text style={styles.title}>{product.name}</Text>
           <Text style={styles.price}>${product.price.toFixed(2)}</Text>
-          
         </View>
-
-      
-
-
-    
       </ScrollView>
-
-     
     </View>
   );
 };
@@ -281,7 +298,6 @@ const styles = StyleSheet.create({
   sizeButtonTextSelected: {
     color: "#1f1f1f",
   },
- 
 
   quantityButtonText: {
     fontSize: 24,
