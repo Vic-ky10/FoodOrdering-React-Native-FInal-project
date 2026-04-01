@@ -1,7 +1,7 @@
 import { Product } from "@assets/types";
 import Colors from "@/constants/Colors";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { Link } from "expo-router";
+import { Image, Pressable, StyleSheet, Text } from "react-native";
+import { Link, useSegments } from "expo-router";
 
 type ProductListItemProps = {
   product: Product;
@@ -11,9 +11,12 @@ export const backupImage =
   "https://notjustdev-dummy.s3.us-east-2.amazonaws.com/food/peperoni.png";
 
 export const ProductListItem = ({ product }: ProductListItemProps) => {
-  return (
-    <Link href={`/Menu/${product.id}`} asChild>
+  const segments = useSegments();
+  const rootSegment = segments[0];
+  const href = `/${rootSegment}/Menu/${product.id}`;
 
+  return (
+    <Link href={href} asChild>
       <Pressable style={styles.container}>
         <Image
           source={{ uri: product.image || backupImage }}
