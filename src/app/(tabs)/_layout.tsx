@@ -34,27 +34,14 @@ export default function TabLayout() {
         name="Menu"
         options={{
           title: 'Menu',
-          headerShown : false, 
+           headerShown : false, 
           tabBarIcon: ({ color }) => (
             <TabBarIcon  
               name='cutlery'
               color={color}
             />
           ),
-          headerRight: () => (
-            <Link href="../modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
+          
         }}
       />
       <Tabs.Screen
