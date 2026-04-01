@@ -4,10 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform} from 'react-native';
 import { useCart } from '@/Providers/CartProvider';
 import CartListItem from '@/components/CartListItems';
+import Button from '@/components/Button';
 
  
 const CartScreen = () => {
- const { items} = useCart()
+ const { items , total} = useCart()
 
   return (
     <View>
@@ -15,6 +16,8 @@ const CartScreen = () => {
      />  }
      contentContainerStyle={{ padding:10 ,gap:10 }}
      />
+     <Text style={{ marginTop : 20 ,marginBottom : 10,  fontSize : 20, fontWeight : '500'}}>Total : ${total}</Text>
+     <Button  text='checkout'/>
 
         <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
     </View>
