@@ -79,6 +79,23 @@ const CreateProductScreen = () => {
           setImage(uri);
         }
         }
+   
+          const  onDelete  = () => {
+           Alert.alert("Delete!!!")
+          }
+         const confirmDelete = () => {
+            Alert.alert("Cofirm", "Are you sure you want to delete this products" , [
+             {
+              text : "Cancel" ,
+             },
+             {
+              text : "Delete" ,
+              style : "destructive",
+              onPress: onDelete ,
+             }
+
+            ])
+         }
   return (
     <View style={styles.container}>
 
@@ -104,6 +121,7 @@ const CreateProductScreen = () => {
       <Text style={{ color: "red" }}>{errors}</Text>
       <Button onPress={onSubmit} text={isUpdating ? "Update" : "Create"} />
       
+      {isUpdating && <Text onPress={confirmDelete} style={styles.textButton} >Delete</Text>}
     </View>
   );
 };
