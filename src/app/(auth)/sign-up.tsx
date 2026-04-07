@@ -1,27 +1,42 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
-import Button from '@/components/Button';
+import { StyleSheet, Text, View, TextInput, Alert } from "react-native";
+import React, { useState } from "react";
+import Button from "@/components/Button";
+import { Link } from "expo-router";
 
-export default function SignUpScreen() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+import { supabase } from "@/lib/supabase";
 
-  const onSignUp = () => {
-    console.log('Sign Up', { name, email, password });
-  };
+const SignUpScreen = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function signUpWithEmail() {
+    if (!email.trim() || !password) {
+      Alert.alert("Missing details", "Enter your email and password to create an account.");
+      return;
+    }
+
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      Alert.alert("Sign up failed", error.message);
+    } else if (!data.session) {
+      Alert.alert(
+        "Check your email",
+        "Your account was created. Confirm your email before signing in."
+      );
+    }
+
+    setLoading(false);
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Create Account</Text>
-
-      <TextInput
-        placeholder="Full Name"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
-      />
 
       <TextInput
         placeholder="Email"
@@ -30,6 +45,7 @@ export default function SignUpScreen() {
         style={styles.input}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoCorrect={false}
       />
 
       <TextInput
@@ -40,38 +56,45 @@ export default function SignUpScreen() {
         secureTextEntry
       />
 
-      <Button text="Sign Up" onPress={onSignUp} />
+      <Button
+        text={loading ? "Creating account..." : "Create account"}
+        onPress={signUpWithEmail}
+        disabled={loading}
+      />
 
       <Link href="/sign-in" style={styles.link}>
-        Already have an account? Sign In
+        Already have an account? Sign in
       </Link>
     </View>
   );
-}
+};
+
+export default SignUpScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: "#ccc",
     borderRadius: 10,
     padding: 14,
     marginBottom: 12,
   },
+
   link: {
     marginTop: 15,
-    textAlign: 'center',
-    color: '#007AFF',
+    textAlign: "center",
+    color: "#007AFF",
   },
 });

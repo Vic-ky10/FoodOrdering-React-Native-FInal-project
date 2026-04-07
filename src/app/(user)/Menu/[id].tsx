@@ -121,6 +121,7 @@
 // });
 
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -131,12 +132,12 @@ import {
 } from "react-native";
 import React, { useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-
 import products from "@assets/data/products";
 import { PizzaSize } from "@assets/types";
 import { backupImage } from "@/components/ProductListItem";
 import Button from "@/components/Button";
 import { useCart } from "@/Providers/CartProvider";
+
 
 const sizes: PizzaSize[] = ["S", "M", "L", "XL"];
 
@@ -179,6 +180,16 @@ const ProductDetailsScreen = () => {
 
     router.push("/cart");
   };
+
+
+  // if (isLoading) {
+  //   return <ActivityIndicator />;
+  // }
+
+  // if (error) {
+  //   return <Text>Failed to fetch products: {error.message}</Text>;
+  // }
+
 
   return (
     <View style={styles.container}>

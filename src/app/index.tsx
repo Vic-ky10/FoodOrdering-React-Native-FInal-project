@@ -1,9 +1,21 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { Link } from "expo-router";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { Link, Redirect } from "expo-router";
 import Button from "@/components/Button";
+import { useAuth } from "@/Providers/AuthProvider";
+import { supabase } from "@/lib/supabase";
 
 export default function WelcomeScreen() {
+  const { session, loading, isAdmin } = useAuth();
+
+  // if (loading) {
+  //   return <ActivityIndicator style={styles.loader} />;
+  // }
+
+  // if (!session) {
+  //   return <Redirect href="/sign-up" />;
+  // }
+
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
@@ -29,13 +41,7 @@ export default function WelcomeScreen() {
           <Button text="Continue as Admin" />
         </Link>
 
-        <Link href="/sign-in" asChild>
-          <Button text="Sign In" />
-        </Link>
-
-        <Link href="/sign-up" asChild>
-          <Button text="Sign Up" />
-        </Link>
+        <Button onPress={() => supabase.auth.signOut()} text="Sign Out" />
       </View>
     </View>
   );
@@ -43,6 +49,9 @@ export default function WelcomeScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  loader: {
     flex: 1,
   },
   topSection: {
@@ -80,7 +89,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 30,
     fontWeight: "700",
-     color: "rgba(0, 0, 0, 0.35)",
+    color: "rgba(0, 0, 0, 0.35)",
     textAlign: "center",
     marginBottom: 10,
   },

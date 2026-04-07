@@ -1,10 +1,26 @@
-import { View, Text, FlatList } from "react-native";
-
-import products from "@assets/data/products";
+import { View, Text, FlatList ,  ActivityIndicator, } from "react-native";
 import { ProductListItem } from "@/components/ProductListItem";
-import { Color } from "expo-router";
+
+import { useProductList } from "@/api/products";
 
 export default function MenuScreen() {
+    const {
+      data: products,
+      isLoading,
+      error,
+    } = useProductList();
+  
+    if (isLoading) {
+      return <ActivityIndicator />;
+    }
+  
+    if (error) {
+      return <Text>Failed to fetch products: {error.message}</Text>;
+    }
+  
+    if (!products?.length) {
+      return <Text>No products found</Text>;
+    }
   return (
     <FlatList
       data={products}
@@ -15,3 +31,5 @@ export default function MenuScreen() {
     />
   );
 }
+// useProductList is imported from "@/api/products"
+

@@ -6,12 +6,14 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { Children, useEffect } from "react";
+import { useEffect } from "react";
 import "react-native-reanimated";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useColorScheme } from "../components/useColorScheme";
 import { CartProvider } from "@/Providers/CartProvider";
-
+import AuthProvider from "@/Providers/AuthProvider";
+import QueryProvider from "@/Providers/QueryProvider";
+//
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
@@ -23,7 +25,9 @@ export const unstable_settings = {
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => {
+  // Ignore lifecycle races during Android reloads/dev shutdown.
+});
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -38,7 +42,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      SplashScreen.hide();
     }
   }, [loaded]);
 
@@ -54,22 +58,26 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <CartProvider>
-        <Stack>
-          <Stack.Screen
-            name="index"
-            options={{
-              title: "Welcome ",
-              headerShown: true,
-            }}
-          />
+      <AuthProvider>
+        <QueryProvider>
+          <CartProvider>
+            <Stack>
+              <Stack.Screen
+                name="index"
+                options={{
+                  title: "Welcome ",
+                  headerShown: true,
+                }}
+              />
 
-          <Stack.Screen name="(user)" options={{ headerShown: false }} />
-          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="cart" options={{ presentation: "modal" }} />
-        </Stack>
-      </CartProvider>
+              <Stack.Screen name="(user)" options={{ headerShown: false }} />
+              <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="cart" options={{ presentation: "modal" }} />
+            </Stack>
+          </CartProvider>
+        </QueryProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

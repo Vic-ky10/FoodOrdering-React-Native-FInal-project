@@ -121,6 +121,7 @@
 // });
 
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -137,22 +138,25 @@ import { PizzaSize } from "@assets/types";
 import { backupImage } from "@/components/ProductListItem";
 import Button from "@/components/Button";
 import { useCart } from "@/Providers/CartProvider";
-import FontAwesome from '@expo/vector-icons/FontAwesome'
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Link } from "expo-router";
 import Colors from "@/constants/Colors";
-
+import { useProduct } from "@/api/products";
+import { isDayjs } from "dayjs";
 
 const sizes: PizzaSize[] = ["S", "M", "L", "XL"];
 
 const ProductDetailsScreen = () => {
-  const { id } = useLocalSearchParams();
-  const router = useRouter();
-  const { addItem } = useCart();
+  const { id: idString } = useLocalSearchParams();
+  const id = parseFloat(typeof idString === "string" ? idString : idString[0]);
 
+
+  const { data: product, error, isLoading } = useProduct(id);
+
+  const { addItem } = useCart();
+    const router = useRouter();
   const [selectedSize, setSelectedSize] = useState<PizzaSize | null>(null);
   const [quantity, setQuantity] = useState(1);
-
-  const product = products.find((item) => item.id.toString() === id);
 
   if (!product) {
     return (
@@ -183,20 +187,26 @@ const ProductDetailsScreen = () => {
     router.push("/cart");
   };
 
+
+    if (isLoading) {
+      return <ActivityIndicator />;
+    }
+  
+    if (error) {
+      return <Text>Failed to fetch products: {error.message}</Text>;
+    }
+  
   return (
     <View style={styles.container}>
-  
-       <Stack.Screen
- 
+      <Stack.Screen
         options={{
           title: "Menu",
           headerRight: () => (
             <Link href={`/(admin)/Menu/create?id=${id}`} asChild>
-        
               <Pressable style={{ marginRight: 15 }}>
                 {({ pressed }) => (
                   <FontAwesome
-                  name="pencil"
+                    name="pencil"
                     size={25}
                     color={Colors.light.tint}
                     style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}

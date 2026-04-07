@@ -1,19 +1,37 @@
-import { StyleSheet, Text, View, TextInput } from "react-native";
 import React, { useState } from "react";
-import Button from "@/components/Button";
+import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import { Link } from "expo-router";
+import { supabase } from "@/lib/supabase";
+import Button from "@/components/Button";
 
-const SignInScreen = () => {
+export default function SignInScreen() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(" ");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const onSignIn = () => {
-    console.log("Sign In", { email, password });
-  };
+  async function signInWithEmail() {
+    if (!email.trim() || !password) {
+      Alert.alert("Missing details", "Enter your email and password to sign in.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      Alert.alert("Sign in failed", error.message);
+    }
+
+    setLoading(false);
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>sign-in</Text>
+      <Text style={styles.title}>Sign In</Text>
 
       <TextInput
         placeholder="Email"
@@ -22,54 +40,53 @@ const SignInScreen = () => {
         style={styles.input}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoCorrect={false}
       />
 
       <TextInput
-        placeholder="password"
-        value="{password}"
+        placeholder="Password"
+        value={password}
         onChangeText={setPassword}
         style={styles.input}
         secureTextEntry
       />
 
-      <Button text="Signup" style={styles.link} onPress={onSignIn} />
+      <Button
+        onPress={signInWithEmail}
+        disabled={loading}
+        text={loading ? "Signing in..." : "Sign in"}
+      />
 
       <Link href="/sign-up" style={styles.link}>
-        Don't have an account ? Sign Up
+        Don't have an account? Sign up
       </Link>
     </View>
   );
-};
+}
 
-export default SignInScreen;
-
-const styles = StyleSheet.create({ 
-    container : {
-        flex : 1,
-        justifyContent :'center',
-        padding : 20 ,
-        backgroundColor : '#fff',
-
-    },
-    title : {
-        fontSize : 28,
-        fontWeight: 'bold',
-        marginBottom : 20 ,
-        textAlign : 'center'
-    },
-    input : {
-        borderWidth : 1,
-        borderColor : '#ccc',
-        borderRadius : 10 ,
-        padding : 14 ,
-        marginBottom : 12 ,
-
-    },
-
-    link : {
-        marginTop : 15 ,
-        textAlign : 'center',
-        color : '#007AFF'
-    }
-
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+  },
+  link: {
+    marginTop: 15,
+    textAlign: "center",
+    color: "#007AFF",
+  },
 });
