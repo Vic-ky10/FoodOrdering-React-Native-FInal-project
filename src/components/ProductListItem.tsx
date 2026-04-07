@@ -1,10 +1,10 @@
-import { Product } from "@assets/types";
+import {  Tables} from "@assets/types";
 import Colors from "@/constants/Colors";
 import { Image, Pressable, StyleSheet, Text } from "react-native";
 import { Link, useSegments } from "expo-router";
 
 type ProductListItemProps = {
-  product: Product;
+  product: Tables<'products'>;
 };
 
 export const backupImage =

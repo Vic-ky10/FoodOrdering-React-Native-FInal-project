@@ -34,8 +34,8 @@ const CreateProductScreen = () => {
 
   useEffect(() => {
     if (updatingProduct) {
-      setName(updatingProduct.name);
-      setPrice(updatingProduct.price.toString());
+      setName(updatingProduct.name != null ? updatingProduct.name: "");
+      setPrice(updatingProduct.price != null ? updatingProduct.price.toString() : "");
       setImage(updatingProduct.image);
     }
   }, [updatingProduct]);

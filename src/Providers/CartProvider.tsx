@@ -1,10 +1,12 @@
-import { CartItem, Product } from "@assets/types";
+import { CartItem, Tables } from "@assets/types";
 import { createContext, PropsWithChildren, useContext, useState } from "react";
 import { randomUUID } from "expo-crypto";
 
+type Product = Tables<'products'>;
+
 type CartType = {
   items: CartItem[];
-  addItem: (product: Product, size: CartItem["size"]) => void;
+  addItem: (product: Tables<'products'>, size: CartItem["size"]) => void;
   updateQuantity: (itemID: string, amount: -1 | 1) => void;
     total : number , 
     removeItem : (itemID : string) => void ;
