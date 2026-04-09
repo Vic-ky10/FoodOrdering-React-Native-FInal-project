@@ -3,6 +3,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { Tables } from "@assets/types";
 import Colors from "../constants/Colors";
 import { backupImage } from "./ProductListItem";
+import RemoteImage from "./RemoteImage";
 
 type OrderItemWithProduct = Tables<"order_items"> & {
   quantity?: number;
@@ -17,11 +18,13 @@ type OrderItemListItemProps = {
 const OrderItemListItem = ({ item }: OrderItemListItemProps) => {
   return (
     <View style={styles.container}>
-      <Image
-        source={{ uri: item.products.image || backupImage }}
-        style={styles.image}
-        resizeMode="contain"
-      />
+    
+        <RemoteImage
+          path={ item.products.image}
+          fallback={ backupImage }
+          style={styles.image}
+          resizeMode="contain"
+        />
       <View style={{ flex: 1 }}>
         <Text style={styles.title}>{item.products.name}</Text>
         <View style={styles.subtitleContainer}>

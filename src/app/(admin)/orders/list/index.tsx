@@ -3,9 +3,13 @@ import { Stack } from "expo-router";
 import { useAdminOrderList } from "@/api/orders";
 import { OrderListItem } from "@/components/OrderListItem";
 
+import { useInsertOrderSubscription } from "@/api/orders/subscriptions";
+
 export default function OrdersScreen() {
   const { data: orders, isLoading, error } = useAdminOrderList({ archived : false });
- 
+   
+  useInsertOrderSubscription()
+      
   if (isLoading) {
     return <ActivityIndicator />;
   }

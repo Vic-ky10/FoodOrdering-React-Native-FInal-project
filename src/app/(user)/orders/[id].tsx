@@ -1,11 +1,12 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { OrderListItem } from '@/components/OrderListItem';
 import OrderItemListItem from '@/components/OrderItemListItem';
 import { useOrderDetails } from '@/api/orders';
+import { useUpdateOrderSubscription } from '@/api/orders/subscriptions';
 
 dayjs.extend(relativeTime);
 
@@ -13,6 +14,7 @@ export default function OrderDetailsScreen() {
   const { id: idString } = useLocalSearchParams<{ id: string }>();
   const id = parseFloat(typeof idString === "string" ? idString : idString[0])
    const { data : order , isLoading , error} =  useOrderDetails(id)
+    useUpdateOrderSubscription(id)
 
    if(isLoading){
     return <ActivityIndicator />

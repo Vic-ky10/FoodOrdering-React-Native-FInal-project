@@ -15,7 +15,7 @@ export const useOrderList = ({
   archived = false,
 }: UseOrderListOptions = {}) => {
   return useQuery<Tables<"orders">[]>({
-    queryKey: ["orders", { archived }],
+    queryKey: ["orders", { archived },],
     queryFn: async (): Promise<Tables<"orders">[]> => {
       let query = supabase
         .from("orders")

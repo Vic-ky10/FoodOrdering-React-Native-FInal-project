@@ -12,6 +12,10 @@ import {
   useProduct,
   useUpdateProduct,
 } from "@/api/products";
+import { randomUUID } from "expo-crypto";
+import { supabase } from "@/lib/supabase";
+import { decode} from 'base64-arraybuffer'
+import { File } from 'expo-file-system'
 
 const CreateProductScreen = () => {
   const [name, setName] = useState("");
@@ -44,21 +48,13 @@ const CreateProductScreen = () => {
     (setName(""), setPrice(""));
   };
 
-  const onSubmit = () => {
-    if (isUpdating) {
-      // update
-      onUpdate();
-    } else {
-      onCreate();
-    }
-  };
-
-  function onUpdate() {
+  const onUpdate = async (): Promise<void> => {
     if (!validateInput()) {
       return;
     }
+    const imagePath = await uploadImage();
     updateProduct(
-      { id, name, price: parseFloat(price), image },
+      { id, name, price: parseFloat(price), image : imagePath},
       {
         onSuccess: () => {
           resetFields();
@@ -70,15 +66,17 @@ const CreateProductScreen = () => {
     Alert.alert("Updating product :  ", name);
   }
 
-  function onCreate() {
+  const onCreate = async (): Promise<void> => {
     if (!validateInput()) {
       return;
     }
     Alert.alert("Creating  product :", name);
 
+    const imagePath = await uploadImage();
+
     // save in the database
     insertProduct(
-      { name, price: parseFloat(price), image },
+      { name, price: parseFloat(price), image: imagePath },
       {
         onSuccess: () => {
           resetFields();
@@ -87,7 +85,16 @@ const CreateProductScreen = () => {
       },
     );
     resetFields();
-  }
+  };
+
+  const onSubmit = (): void => {
+    if (isUpdating) {
+      // update
+      onUpdate();
+    } else {
+      onCreate();
+    }
+  };
 
   const validateInput = () => {
     setErrors("");
@@ -121,7 +128,7 @@ const CreateProductScreen = () => {
     }
   };
  
-
+    
   // for delete a products
   const onDelete = () => {
     Alert.alert("Delete!!!");
@@ -144,6 +151,25 @@ const CreateProductScreen = () => {
       },
     ]);
   };
+
+       const uploadImage = async () => {
+  if (!image?.startsWith('file://')) {
+    return;
+  }
+
+  const base64 = await new File(image).base64();
+  const filePath = `${randomUUID()}.png`;
+  const contentType = 'image/png';
+
+  const { data, error } = await supabase.storage
+    .from('product-images')
+    .upload(filePath, decode(base64), { contentType });
+
+  if (data) {
+    return data.path;
+  }
+};
+
   return (
     <View style={styles.container}>
       <Stack.Screen

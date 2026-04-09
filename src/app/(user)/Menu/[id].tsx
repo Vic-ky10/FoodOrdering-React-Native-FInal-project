@@ -137,6 +137,7 @@ import { PizzaSize } from "@assets/types";
 import { backupImage } from "@/components/ProductListItem";
 import Button from "@/components/Button";
 import { useCart } from "@/Providers/CartProvider";
+import RemoteImage from "@/components/RemoteImage";
 
 
 const sizes: PizzaSize[] = ["S", "M", "L", "XL"];
@@ -195,9 +196,11 @@ const ProductDetailsScreen = () => {
     <View style={styles.container}>
       <Stack.Screen options={{ title: product.name }} />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <Image
-          source={{ uri: product.image || backupImage }}
+      <ScrollView contentContainerStyle={styles.content}> 
+
+        <RemoteImage
+       path={product.image}
+       fallback={backupImage}
           style={styles.image}
           resizeMode="contain"
         />

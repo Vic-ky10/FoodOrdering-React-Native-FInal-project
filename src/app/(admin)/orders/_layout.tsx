@@ -6,8 +6,8 @@ import Colors from "@/constants/Colors";
 export default function MenuStack() {
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ title: "Orders" }} />
-         <Stack.Screen name="list" options={{ headerShown : false}} />
+      <Stack.Screen name="list" options={{ title: "Orders", headerShown: false }} />
+      <Stack.Screen name="[id]" options={{ title: "Order Details" }} />
     </Stack>
   );
 }

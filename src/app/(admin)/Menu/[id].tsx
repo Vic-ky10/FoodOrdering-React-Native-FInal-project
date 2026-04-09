@@ -143,6 +143,7 @@ import { Link } from "expo-router";
 import Colors from "@/constants/Colors";
 import { useProduct } from "@/api/products";
 import { isDayjs } from "dayjs";
+import RemoteImage from "@/components/RemoteImage";
 
 const sizes: PizzaSize[] = ["S", "M", "L", "XL"];
 
@@ -220,8 +221,9 @@ const ProductDetailsScreen = () => {
       <Stack.Screen options={{ title: product.name }} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Image
-          source={{ uri: product.image || backupImage }}
+       <RemoteImage
+       path={product.image}
+       fallback={backupImage}
           style={styles.image}
           resizeMode="contain"
         />
