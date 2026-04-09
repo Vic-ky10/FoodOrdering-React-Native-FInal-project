@@ -32,6 +32,8 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      // console.log("auth session from provider:", session);
+      // console.log("logged in user id:", session?.user?.id ?? null);
       setSession(session);
 
       if (session) {
@@ -50,7 +52,12 @@ export default function AuthProvider({ children }: PropsWithChildren) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+
+      // check for sessions
+      // console.log("auth state change event:", event);
+      // console.log("auth state changed session:", session);
+      // console.log("auth state changed user id:", session?.user?.id ?? null);
       setSession(session);
     });
 

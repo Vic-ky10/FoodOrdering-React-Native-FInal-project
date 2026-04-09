@@ -1,11 +1,17 @@
-import { View, Text, StyleSheet, Image } from 'react-native';
-import React from 'react';
-import Colors from '../constants/Colors';
-import { OrderItem } from '@assets/types';
-import {backupImage} from './ProductListItem';
+import { Image, StyleSheet, Text, View } from "react-native";
+
+import { Tables } from "@assets/types";
+import Colors from "../constants/Colors";
+import { backupImage } from "./ProductListItem";
+
+type OrderItemWithProduct = Tables<"order_items"> & {
+  quantity?: number;
+  qunatity?: number;
+  products: Tables<"products">;
+};
 
 type OrderItemListItemProps = {
-  item: OrderItem;
+  item: OrderItemWithProduct;
 };
 
 const OrderItemListItem = ({ item }: OrderItemListItemProps) => {
@@ -24,7 +30,7 @@ const OrderItemListItem = ({ item }: OrderItemListItemProps) => {
         </View>
       </View>
       <View style={styles.quantitySelector}>
-        <Text style={styles.quantity}>{item.quantity}</Text>
+        <Text style={styles.quantity}>{item.quantity ?? item.qunatity ?? 0}</Text>
       </View>
     </View>
   );
@@ -32,41 +38,41 @@ const OrderItemListItem = ({ item }: OrderItemListItemProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 10,
     padding: 5,
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   image: {
     width: 75,
     aspectRatio: 1,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginRight: 10,
   },
   title: {
-    fontWeight: '500',
+    fontWeight: "500",
     fontSize: 16,
     marginBottom: 5,
   },
   subtitleContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 5,
   },
   quantitySelector: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 10,
   },
   quantity: {
-    fontWeight: '500',
+    fontWeight: "500",
     fontSize: 18,
   },
   price: {
     color: Colors.light.tint,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
 

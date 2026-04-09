@@ -8,13 +8,13 @@ import { supabase } from "@/lib/supabase";
 export default function WelcomeScreen() {
   const { session, loading, isAdmin } = useAuth();
 
-  // if (loading) {
-  //   return <ActivityIndicator style={styles.loader} />;
-  // }
+  if (loading) {
+    return <ActivityIndicator style={styles.loader} />;
+  }
 
-  // if (!session) {
-  //   return <Redirect href="/sign-up" />;
-  // }
+  if (!session) {
+    return <Redirect href="/sign-up" />;
+  }
 
   return (
     <View style={styles.container}>

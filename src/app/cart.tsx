@@ -7,7 +7,7 @@ import CartListItem from "@/components/CartListItems";
 import Button from "@/components/Button";
 
 const CartScreen = () => {
-  const { items, total, subtotal, deliveryFee } = useCart();
+  const { items, total, subtotal, deliveryFee , checkout} = useCart();
 
   return (
     <View>
@@ -33,7 +33,7 @@ const CartScreen = () => {
         }}
         disabled={items.length === 0}
       >
-        <Text style={{ color: "white", fontWeight: "bold" }}>Checkout</Text>
+        <Text style={{ color: "white", fontWeight: "bold" }} onPress={checkout}>Checkout</Text>
       </Pressable>
 
       <StatusBar style={Platform.OS === "ios" ? "light" : "auto"} />

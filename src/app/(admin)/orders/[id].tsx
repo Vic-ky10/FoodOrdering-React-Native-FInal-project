@@ -1,77 +1,98 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import { orders } from "@assets/data/orders";
-import { OrderListItem } from "@/components/OrderListItem";
+import { useOrderDetails, useUpdateOrder } from "@/api/orders";
 import OrderItemListItem from "@/components/OrderItemListItem";
+import { OrderListItem } from "@/components/OrderListItem";
 import Colors from "@/constants/Colors";
-import { OrderStatusList } from "@assets/types";
-
-dayjs.extend(relativeTime);
+import { OrderStatus, OrderStatusList } from "@assets/types";
 
 export default function OrderDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const order = orders.find((item) => item.id.toString() === id);
+  const { id: idParam } = useLocalSearchParams<{ id: string | string[] }>();
+  const id = Number(Array.isArray(idParam) ? idParam[0] : idParam);
 
-  if (!order) {
+  const { data: order, isLoading, error } = useOrderDetails(id);
+  const { mutate: updateOrder, isPending } = useUpdateOrder();
+
+  const updateStatus = (status: OrderStatus) => {
+    updateOrder({
+      id,
+      updateFields: { status },
+    });
+  };
+
+  if (!Number.isFinite(id)) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.emptyText}>Order not found.</Text>
+        <Text>Invalid order id.</Text>
+      </View>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <View style={styles.centered}>
+        <Text>Failed to fetch order.</Text>
       </View>
     );
   }
 
   return (
-    <View style={{ padding: 10, gap: 20 }}>
+    <View style={styles.container}>
       <Stack.Screen options={{ title: `Order #${id}` }} />
-      <OrderListItem order={order} />
 
       <FlatList
-        data={order.order_items}
+        data={order.order_items ?? []}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => <OrderItemListItem item={item} />}
-        contentContainerStyle={{ gap: 10 }}
+        contentContainerStyle={styles.content}
         ListHeaderComponent={() => <OrderListItem order={order} />}
         ListFooterComponent={() => (
-          <>
-            <Text style={{ fontWeight: "bold" }}>Status</Text>
-            <View style={{ flexDirection: "row", gap: 5 }}>
-              {OrderStatusList.map((status) => (
-                <Pressable
-                  key={status}
-                  onPress={() => console.warn("Update status")}
-                  style={{
-                    borderColor: Colors.light.tint,
-                    borderWidth: 1,
-                    padding: 10,
-                    borderRadius: 5,
-                    marginVertical: 10,
-                    backgroundColor:
-                      order.status === status
-                        ? Colors.light.tint
-                        : "transparent",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color:
-                        order.status === status ? "white" : Colors.light.tint,
-                    }}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Status</Text>
+
+            <View style={styles.statusRow}>
+              {OrderStatusList.map((status) => {
+                const isActive = order.status === status;
+
+                return (
+                  <Pressable
+                    key={status}
+                    disabled={isPending}
+                    onPress={() => updateStatus(status)}
+                    style={[
+                      styles.statusButton,
+                      isActive && styles.activeStatusButton,
+                    ]}
                   >
-                    {status}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.statusText,
+                        isActive && styles.activeStatusText,
+                      ]}
+                    >
+                      {status}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          </>
+          </View>
         )}
       />
     </View>
@@ -79,47 +100,47 @@ export default function OrderDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 16,
-  },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
   },
-  emptyText: {
-    fontSize: 16,
-    color: "#6b7280",
+  container: {
+    flex: 1,
+    padding: 10,
   },
-  section: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
+  content: {
+    gap: 10,
+    paddingBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "bold",
   },
-  status: {
-    fontSize: 16,
-    fontWeight: "600",
+  section: {
+    gap: 10,
   },
-  metaText: {
-    color: "#6b7280",
-  },
-  itemRow: {
+  statusRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
   },
-  itemName: {
-    fontSize: 16,
+  statusButton: {
+    borderColor: Colors.light.tint,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "transparent",
+  },
+  activeStatusButton: {
+    backgroundColor: Colors.light.tint,
+  },
+  statusText: {
+    color: Colors.light.tint,
     fontWeight: "600",
   },
-  itemPrice: {
-    fontWeight: "600",
+  activeStatusText: {
+    color: "white",
   },
 });

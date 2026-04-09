@@ -2,7 +2,11 @@ import { supabase } from "@/lib/supabase";
 import { Product } from "@assets/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export const listProducts = async (): Promise<Product[]> => {
+
+export const useProductList = () => {
+  return useQuery<Product[]>({
+    queryKey: ["products"],
+    queryFn: async (): Promise<Product[]> => {
   const { data, error } = await supabase.from("products").select("*");
 
   if (error) {
@@ -10,12 +14,7 @@ export const listProducts = async (): Promise<Product[]> => {
   }
 
   return data ?? [];
-};
-
-export const useProductList = () => {
-  return useQuery<Product[]>({
-    queryKey: ["products"],
-    queryFn: listProducts,
+}
   });
 };
 

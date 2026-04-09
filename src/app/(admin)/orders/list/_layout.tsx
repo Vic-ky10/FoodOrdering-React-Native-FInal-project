@@ -10,6 +10,7 @@ export default function orderListNavigator() {
     
       <TopTabs >
         <TopTabs.Screen name="index" options={{title : 'Active'} } />
+        <TopTabs.Screen name="archive" options={{ title: "Archive" }} />
       </TopTabs>
     </SafeAreaView>
   );
