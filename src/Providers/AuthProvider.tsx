@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { Session } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseUrl } from "@/lib/supabase";
 
 type AuthData = {
   session: Session | null;
@@ -29,23 +29,31 @@ export default function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      // console.log("auth session from provider:", session);
-      // console.log("logged in user id:", session?.user?.id ?? null);
-      setSession(session);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        setSession(session);
 
-      if (session) {
-        // fetch profile
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-        setProfile(data || null);
+        if (session) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+          setProfile(data || null);
+        }
+      } catch (error) {
+        console.error(
+          "Supabase startup request failed. Check EXPO_PUBLIC_SUPABASE_URL and whether this device can reach:",
+          supabaseUrl,
+          error
+        );
+        setSession(null);
+        setProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchSession();

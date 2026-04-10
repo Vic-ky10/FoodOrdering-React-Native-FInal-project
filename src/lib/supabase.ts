@@ -1,6 +1,8 @@
 import 'react-native-url-polyfill/auto';
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { Database } from '@/database.types';
 
 const ExpoSecureStoreAdapter = {
@@ -15,8 +17,42 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
-const supabaseUrl = 'https://yjmxvovfmjswnjxgdidf.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlqbXh2b3ZmbWpzd25qeGdkaWRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyOTA0MjksImV4cCI6MjA5MDg2NjQyOX0.dhMSnTAirqcTm5uN33aaxUzxGmvZB-zDEGpBlVj8B0I';
+const getExpoHost = () => {
+  const hostUri = Constants.expoConfig?.hostUri;
+
+  if (!hostUri) {
+    return null;
+  }
+
+  return hostUri.split(':')[0] || null;
+};
+
+const getSupabaseUrl = () => {
+  const rawUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+
+  if (!rawUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(rawUrl);
+    const isLoopbackHost =
+      url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+
+    // Android cannot reach the host machine through localhost. Prefer Expo's
+    // dev host when available, and fall back to the emulator bridge address.
+    if (Platform.OS === 'android' && isLoopbackHost) {
+      url.hostname = getExpoHost() || '10.0.2.2';
+    }
+
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return rawUrl;
+  }
+};
+
+export const supabaseUrl = getSupabaseUrl();
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON || "";
 
 export const supabase = createClient <Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
