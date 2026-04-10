@@ -47,11 +47,6 @@ CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
-
-
-
-
-
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -62,7 +57,6 @@ begin
   return new;
 end;
 $$;
-
 
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
 
@@ -539,6 +533,14 @@ drop extension if exists "pg_net";
 
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
 
   create policy "Allow authenticated users to read  16wiy3a_0"
   on "storage"."objects"
@@ -573,6 +575,4 @@ with check ((bucket_id = 'avatars'::text));
   for select
   to public
 using ((bucket_id = 'avatars'::text));
-
-
 

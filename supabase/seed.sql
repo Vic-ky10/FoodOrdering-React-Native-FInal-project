@@ -1,0 +1,14 @@
+-- Local demo data for Supabase resets.
+-- Keep this lightweight and safe to reapply on every `npx supabase db reset`.
+
+-- insert into public.products (name, image, price)
+-- values
+--   ('Classic Burger', null, 149),
+--   ('Cheese Burger', null, 169),
+--   ('Paneer Wrap', null, 129),
+--   ('Chicken Pizza', null, 299),
+--   ('Veggie Pizza', null, 259),
+--   ('French Fries', null, 99),
+--   ('Cold Coffee', null, 89),
+--   ('Chocolate Shake', null, 119)
+-- on conflict do nothing;
