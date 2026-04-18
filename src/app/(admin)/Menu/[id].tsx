@@ -1,238 +1,215 @@
-// import { Alert, StyleSheet, Text, View, Image, Pressable } from "react-native";
-// import React, { useState } from "react";
-// import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-// import products from "@assets/data/products";
-// import { backupImage } from "@/components/ProductListItem";
-// import Button from "@/components/Button";
-// import { useCart } from "@/Providers/CartProvider";
-// import { PizzaSize } from "@assets/types";
-
-// const sizes: PizzaSize[] = ["S", "M", "L", "XL"];
-
-// const ProductDetailsScreen = () => {
-//   const { id } = useLocalSearchParams();
-//   const [selectedSize, setSelectedSize] = useState<CartItem["size"] | null>(
-//     null,
-//   );
-
-//   const { addItem } = useCart();
-
-//   const router = useRouter();
-
-//   const product = products.find((P) => P.id.toString() === id);
-//   if (!product) {
-//     return <Text>product not found </Text>;
-//   }
-
-//   const addToCart = () => {
-//     if (!selectedSize) {
-//       Alert.alert(
-//         "Select a size",
-//         "Please choose a size before adding this item to your cart.",
-//       );
-//       return;
-//     }
-
-//     Alert.alert(
-//       "Added to cart",
-//       `${product?.name} (${selectedSize}) was added to your cart.`,
-//     );
-//     addItem(product, selectedSize);
-
-//     router.push("/cart");
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       <Stack.Screen options={{ title: product?.name }} />
-//       <Image
-//         source={{ uri: product.image || backupImage }}
-//         style={styles.image}
-//       />
-
-//       <View style={styles.sizes}>
-//         {sizes.map((size) => (
-//           <Pressable
-//             onPress={() => setSelectedSize(size)}
-//             key={size}
-//             style={[styles.size, selectedSize === size && styles.sizeSelected]}
-//           >
-//             <Text
-//               style={[
-//                 styles.text,
-//                 { color: selectedSize === size ? "black" : "gray" },
-//               ]}
-//             >
-//               {size}
-//             </Text>
-//           </Pressable>
-//         ))}
-//       </View>
-//       <Text
-//         style={{
-//           fontSize: 18,
-//           color: "black",
-//           fontWeight: "bold",
-//           marginTop: 20,
-//           marginBottom: 15,
-//         }}
-//       >
-//         {product.name} : Price ${product.price.toFixed(2)}
-//       </Text>
-//       <Button text="Add to cart" onPress={addToCart} />
-//     </View>
-//   );
-// };
-
-// export default ProductDetailsScreen;
-
-// const styles = StyleSheet.create({
-//   container: { backgroundColor: "white", flex: 1, padding: 10 },
-//   image: {
-//     width: "100%",
-//     aspectRatio: 1,
-//     marginBottom : 20 ,
-//   },
-//   price: {
-//     fontSize: 18,
-//     fontWeight: "bold",
-//   },
-//   sizes: {
-//     flexDirection: "row",
-//     justifyContent: "space-around",
-//   },
-//   size: {
-//     backgroundColor: "white",
-//     width: 50,
-//     aspectRatio: 1,
-//     borderRadius: 25,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     borderWidth: 1,
-//     borderColor: "gainsboro",
-//   },
-//   sizeSelected: {
-//     backgroundColor: "gainsboro",
-//   },
-//   text: {
-//     color: "black",
-//     fontSize: 30,
-//   },
-// });
-
+import React from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import React, { useState } from "react";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-
-import products from "@assets/data/products";
-import { PizzaSize } from "@assets/types";
-import { backupImage } from "@/components/ProductListItem";
-import Button from "@/components/Button";
-import { useCart } from "@/Providers/CartProvider";
+import { Stack, Link, useLocalSearchParams, useRouter } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Link } from "expo-router";
-import Colors from "@/constants/Colors";
-import { useProduct } from "@/api/products";
-import { isDayjs } from "dayjs";
-import RemoteImage from "@/components/RemoteImage";
 
-const sizes: PizzaSize[] = ["S", "M", "L", "XL"];
+import Colors from "@/constants/Colors";
+import { useDeleteProuducts, useProduct } from "@/api/products";
+import RemoteImage from "@/components/RemoteImage";
+import { backupImage } from "@/components/ProductListItem";
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(value);
+
+const formatDate = (value: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
 
 const ProductDetailsScreen = () => {
+  const router = useRouter();
   const { id: idString } = useLocalSearchParams();
-  const id = parseFloat(typeof idString === "string" ? idString : idString[0]);
-
+  const id = Number(Array.isArray(idString) ? idString[0] : idString);
 
   const { data: product, error, isLoading } = useProduct(id);
+  const { mutate: deleteProduct, isPending: isDeleting } = useDeleteProuducts();
 
-  const { addItem } = useCart();
-    const router = useRouter();
-  const [selectedSize, setSelectedSize] = useState<PizzaSize | null>(null);
-  const [quantity, setQuantity] = useState(1);
+  const confirmDelete = () => {
+    if (!product) {
+      return;
+    }
+
+    Alert.alert(
+      "Delete product",
+      `Remove ${product.name} from the menu? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            deleteProduct(id, {
+              onSuccess: () => router.replace("/(admin)/Menu"),
+            }),
+        },
+      ],
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+        <Text style={styles.helperText}>Loading product details...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.notFoundTitle}>Could not load product</Text>
+        <Text style={styles.notFoundText}>
+          {error.message || "Something went wrong while fetching the item."}
+        </Text>
+      </View>
+    );
+  }
 
   if (!product) {
     return (
       <View style={styles.centered}>
         <Text style={styles.notFoundTitle}>Product not found</Text>
         <Text style={styles.notFoundText}>
-          We could not find the item you selected.
+          We could not find the menu item you selected.
         </Text>
       </View>
     );
   }
 
-  const addToCart = () => {
-    if (!selectedSize) {
-      Alert.alert("Select a size", "Please choose a pizza size first.");
-      return;
-    }
-
-    for (let i = 0; i < quantity; i++) {
-      addItem(product, selectedSize);
-    }
-
-    Alert.alert(
-      "Added to cart",
-      `${product.name} (${selectedSize}) x${quantity} added successfully.`,
-    );
-
-    router.push("/cart");
-  };
-
-
-    if (isLoading) {
-      return <ActivityIndicator />;
-    }
-  
-    if (error) {
-      return <Text>Failed to fetch products: {error.message}</Text>;
-    }
-  
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: "Menu",
+          title: product.name,
           headerRight: () => (
-            <Link href={`/(admin)/Menu/create?id=${id}`} asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="pencil"
-                    size={25}
-                    color={Colors.light.tint}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
+            <View style={styles.headerActions}>
+              <Link href={`/(admin)/Menu/create?id=${product.id}`} asChild>
+                <Pressable style={styles.headerActionButton}>
+                  {({ pressed }) => (
+                    <FontAwesome
+                      name="pencil"
+                      size={20}
+                      color={Colors.light.tint}
+                      style={{ opacity: pressed ? 0.55 : 1 }}
+                    />
+                  )}
+                </Pressable>
+              </Link>
+              <Pressable
+                onPress={confirmDelete}
+                style={({ pressed }) => [
+                  styles.headerActionButton,
+                  isDeleting && styles.disabledButton,
+                  pressed && !isDeleting && styles.pressedButton,
+                ]}
+                disabled={isDeleting}
+              >
+                <FontAwesome name="trash" size={20} color="#c0392b" />
               </Pressable>
-            </Link>
+            </View>
           ),
         }}
       />
-      <Stack.Screen options={{ title: product.name }} />
 
       <ScrollView contentContainerStyle={styles.content}>
-       <RemoteImage
-       path={product.image}
-       fallback={backupImage}
-          style={styles.image}
-          resizeMode="contain"
-        />
-
-        <View style={styles.infoBlock}>
-          <Text style={styles.title}>{product.name}</Text>
-          <Text style={styles.price}>${product.price.toFixed(2)}</Text>
+        <View style={styles.heroCard}>
+          <RemoteImage
+            path={product.image}
+            fallback={backupImage}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>Product #{product.id}</Text>
+          </View>
         </View>
+
+        <View style={styles.infoCard}>
+          <View style={styles.titleRow}>
+            <View style={styles.titleGroup}>
+              <Text style={styles.label}>Menu item</Text>
+              <Text style={styles.title}>{product.name}</Text>
+            </View>
+            <View style={styles.pricePill}>
+              <Text style={styles.priceText}>{formatCurrency(product.price)}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.description}>
+            A clean product snapshot for admins. Review the current image, price,
+            and metadata before editing or deleting this menu item.
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick facts</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>ID</Text>
+              <Text style={styles.statValue}>{product.id}</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Price</Text>
+              <Text style={styles.statValue}>{formatCurrency(product.price)}</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Image</Text>
+              <Text style={styles.statValue}>
+                {product.image ? "Linked" : "Missing"}
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>Created</Text>
+              <Text style={styles.statValue}>
+                {formatDate(product.created_at)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
       </ScrollView>
+
+      <View style={styles.footer}>
+        <Link href={`/(admin)/Menu/create?id=${product.id}`} asChild>
+          <Pressable style={styles.primaryButton}>
+            {({ pressed }) => (
+              <Text style={[styles.primaryButtonText, pressed && styles.pressedText]}>
+                Edit product
+              </Text>
+            )}
+          </Pressable>
+        </Link>
+
+        <Pressable
+          onPress={confirmDelete}
+          style={({ pressed }) => [
+            styles.secondaryButton,
+            isDeleting && styles.disabledButton,
+            pressed && !isDeleting && styles.pressedButton,
+          ]}
+          disabled={isDeleting}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {isDeleting ? "Deleting..." : "Delete product"}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 };
@@ -242,120 +219,208 @@ export default ProductDetailsScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff8f2",
   },
   content: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 24,
+  },
+  heroCard: {
+    borderRadius: 24,
+    overflow: "hidden",
+    backgroundColor: "#ffffff",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   image: {
     width: "100%",
-    height: 280,
-    marginBottom: 20,
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
+    height: 300,
+    backgroundColor: "#fff",
   },
-  infoBlock: {
-    marginBottom: 24,
-    gap: 8,
+  badge: {
+    position: "absolute",
+    left: 16,
+    top: 16,
+    backgroundColor: "rgba(0,0,0,0.72)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  infoCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "#f1e2d9",
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  titleGroup: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#b55d27",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 6,
   },
   title: {
     fontSize: 28,
-    fontWeight: "700",
+    fontWeight: "800",
     color: "#1f1f1f",
+    lineHeight: 34,
   },
-  price: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#d35400",
+  pricePill: {
+    backgroundColor: "#ffe2cc",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  priceText: {
+    color: "#b34700",
+    fontWeight: "800",
+    fontSize: 16,
   },
   description: {
+    marginTop: 14,
     fontSize: 15,
     lineHeight: 22,
     color: "#5f5f5f",
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 18,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "800",
+    color: "#1f1f1f",
     marginBottom: 12,
-    color: "#1f1f1f",
   },
-  sizesRow: {
+  statsGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
+    flexWrap: "wrap",
+    gap: 12,
   },
-  sizeButton: {
-    flex: 1,
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#e3d5ca",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-  },
-  sizeButtonSelected: {
-    backgroundColor: "#ffd8bf",
-    borderColor: "#d4c7bdff",
-  },
-  sizeButtonText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#7a7a7a",
-  },
-  sizeButtonTextSelected: {
-    color: "#1f1f1f",
-  },
-
-  quantityButtonText: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1f1f1f",
-  },
-  quantityText: {
-    fontSize: 22,
-    fontWeight: "700",
-    minWidth: 30,
-    textAlign: "center",
-  },
-  summaryCard: {
+  statCard: {
+    width: "48%",
     backgroundColor: "#ffffff",
     borderRadius: 18,
-    padding: 16,
-    gap: 8,
+    padding: 14,
     borderWidth: 1,
-    borderColor: "#f0e2d7",
+    borderColor: "#f1e2d9",
   },
-  summaryText: {
-    fontSize: 15,
-    color: "#4f4f4f",
-  },
-  summaryTotal: {
-    fontSize: 20,
+  statLabel: {
+    fontSize: 12,
     fontWeight: "700",
-    color: "#d35400",
-    marginTop: 4,
+    color: "#8f8f8f",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1f1f1f",
+    lineHeight: 20,
+  },
+  noteCard: {
+    backgroundColor: "#fff1e8",
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#f2d7c8",
+  },
+  noteText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: "#6a4b38",
   },
   footer: {
     padding: 16,
-    paddingTop: 10,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#f0e2d7",
     backgroundColor: "#ffffff",
+    gap: 10,
+  },
+  primaryButton: {
+    backgroundColor: Colors.light.tint,
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: "center",
+  },
+  primaryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  secondaryButton: {
+    backgroundColor: "#fff2f0",
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#f3c0b9",
+  },
+  secondaryButtonText: {
+    color: "#c0392b",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginRight: 4,
+  },
+  headerActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  pressedButton: {
+    opacity: 0.6,
+  },
+  pressedText: {
+    opacity: 0.85,
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   centered: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    backgroundColor: "#fff8f2",
+  },
+  helperText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: "#666",
   },
   notFoundTitle: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: "800",
     marginBottom: 8,
     color: "#1f1f1f",
   },
@@ -363,5 +428,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#666",
     textAlign: "center",
+    lineHeight: 22,
   },
 });

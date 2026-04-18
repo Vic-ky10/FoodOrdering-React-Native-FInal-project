@@ -175,7 +175,7 @@ const CreateProductScreen = () => {
       <Stack.Screen
         options={{ title: isUpdating ? "Update Product" : "Create Product" }}
       />
-      <Image source={{ uri: image || backupImage }} style={styles.image} />
+      <Image source={{ uri: image }} style={styles.image} />
       <Text onPress={pickImage} style={styles.textButton}>
         {" "}
         Select Image{" "}
@@ -209,33 +209,68 @@ const CreateProductScreen = () => {
 };
 
 export default CreateProductScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    padding: 10,
+    paddingHorizontal: 20,
+    backgroundColor: "#f7f7f7",
   },
-  input: {
-    backgroundColor: "white",
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 5,
-    marginBottom: 20,
-  },
-  label: {
-    color: "gray",
-    fontSize: 16,
-  },
+
   image: {
-    width: "50%",
-    aspectRatio: 1,
+    width: 160,
+    height: 160,
+    borderRadius: 12,
     alignSelf: "center",
+    marginBottom: 12,
+    backgroundColor: "#eaeaea",
   },
+
   textButton: {
     alignSelf: "center",
-    fontWeight: "bold",
+    fontWeight: "600",
+    fontSize: 16,
     color: Colors.light.tint,
-    marginVertical: 10,
+    marginVertical: 12,
+    paddingVertical: 6,
+  },
+
+  label: {
+    color: "#555",
+    fontSize: 15,
+    fontWeight: "500",
+    marginBottom: 6,
+  },
+
+  input: {
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginBottom: 18,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+
+    elevation: 2,
+  },
+
+  errorText: {
+    color: "#ff3b30",
+    marginBottom: 10,
+    fontSize: 14,
+  },
+
+  deleteText: {
+    alignSelf: "center",
+    marginTop: 18,
+    fontWeight: "600",
+    fontSize: 16,
+    color: "#ff3b30",
   },
 });
