@@ -1,5 +1,11 @@
 import { CartItem, Tables } from "@assets/types";
-import { createContext, PropsWithChildren, useContext, useState } from "react";
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 import { randomUUID } from "expo-crypto";
 import { Alert } from "react-native";
 import { useInsertOrder } from "@/api/orders";
@@ -17,7 +23,9 @@ type CartType = {
   clearCart: () => void;
   subtotal: number;
   deliveryFee: number;
-  checkout: () => void;
+  itemCount: number;
+  hasItems: boolean;
+  checkout: (overrideTotal?: number) => void;
 };
 
 const CartContext = createContext<CartType>({
@@ -29,6 +37,8 @@ const CartContext = createContext<CartType>({
   clearCart: () => {},
   subtotal: 0,
   deliveryFee: 0,
+  itemCount: 0,
+  hasItems: false,
   checkout: () => {},
 });
 
@@ -38,26 +48,32 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
   const router = useRouter();
 
   const { mutate: insertOrder } = useInsertOrder();
-  const { mutate: InsertOrderItems } = useInsertOrderItems();
+  const { mutate: insertOrderItems } = useInsertOrderItems();
 
   const addItem = (product: Product, size: CartItem["size"]) => {
-    const existingItem = items.find(
-      (item) => item.product_id === product.id && item.size === size,
-    );
-    if (existingItem) {
-      updateQuantity(existingItem.id, 1);
-      return;
-    }
+    setItems((currentItems) => {
+      const existingItem = currentItems.find(
+        (item) => item.product_id === product.id && item.size === size,
+      );
 
-    // if already in cart, increment quantity
-    const newCartItem: CartItem = {
-      id: randomUUID(), // generate
-      product,
-      product_id: product.id,
-      size,
-      quantity: 1,
-    };
-    setItems([newCartItem, ...items]);
+      if (existingItem) {
+        return currentItems.map((item) =>
+          item.id === existingItem.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+
+      const newCartItem: CartItem = {
+        id: randomUUID(),
+        product,
+        product_id: product.id,
+        size,
+        quantity: 1,
+      };
+
+      return [newCartItem, ...currentItems];
+    });
   };
   // removeItem() and clearCart()
   const removeItem = (itemId: string) => {
@@ -87,37 +103,58 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
     (sum, item) => (sum += item.product.price * item.quantity),
     0,
   );
-  const checkout = () => {
+  const deliveryFee = items.length > 0 ? 40 : 0;
+  const total = subtotal + deliveryFee;
+  const itemCount = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items],
+  );
+  const hasItems = items.length > 0;
+
+  const checkout = (overrideTotal?: number) => {
+    if (!hasItems) {
+      Alert.alert("Cart", "Your cart is empty.");
+      return;
+    }
+
+    const finalTotal = overrideTotal ?? total;
+
     insertOrder(
-      { total },
+      { total: finalTotal },
       {
         onSuccess: savedOrderItems,
-      },
-    );
-  };
-
-  const savedOrderItems = (order: Tables<"orders">) => {
-
-    const orderItems = items.map((cartItem) => ({
-      order_id: order.id,
-      product_id: cartItem.product_id,
-      qunatity: cartItem.quantity,
-      size: cartItem.size,
-    }));
-
-    InsertOrderItems(
-      orderItems, {
-        onSuccess() {
-          console.log(order);
-          clearCart();
-          router.push(`/(user)/orders/${order.id}`);
+        onError: (error) => {
+          Alert.alert(
+            "Checkout Error",
+            error?.message || "Failed to create your order.",
+          );
         },
       },
     );
   };
 
-  const deliveryFee = items.length > 0 ? 40 : 0;
-  const total = subtotal + deliveryFee;
+  const savedOrderItems = (order: Tables<"orders">) => {
+    const orderItems = items.map((cartItem) => ({
+      order_id: order.id,
+      product_id: cartItem.product_id,
+      quantity: cartItem.quantity,
+      size: cartItem.size,
+    }));
+
+    insertOrderItems(orderItems, {
+      onSuccess() {
+        clearCart();
+        router.push(`/(user)/orders/${order.id}`);
+      },
+      onError: (error) => {
+        Alert.alert(
+          "Order Items Error",
+          error?.message || "Your order was saved, but items could not be added.",
+        );
+      },
+    });
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -129,6 +166,8 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
         clearCart,
         subtotal,
         deliveryFee,
+        itemCount,
+        hasItems,
         checkout,
       }}
     >
