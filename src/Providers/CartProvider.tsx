@@ -3,6 +3,7 @@ import {
   createContext,
   PropsWithChildren,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -11,8 +12,19 @@ import { Alert } from "react-native";
 import { useInsertOrder } from "@/api/orders";
 import { useRouter } from "expo-router";
 import { useInsertOrderItems } from "@/api/Order-items";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Product = Tables<"products">;
+
+type Coupon = {
+  code: string;
+  type: "percentage" | "fixed";
+  value: number;
+  active: boolean;
+  minimum_order_amount?: number | null;
+  expires_at?: string | null;
+  first_order_only?: boolean | null;
+};
 
 type CartType = {
   items: CartItem[];
@@ -21,10 +33,13 @@ type CartType = {
   total: number;
   removeItem: (itemID: string) => void;
   clearCart: () => void;
-  subtotal: number;
+  subtotal: number; 
   deliveryFee: number;
   itemCount: number;
   hasItems: boolean;
+  appliedCoupon: Coupon | null;
+  applyCoupon: (coupon: Coupon) => void;
+  removeCoupon: () => void;
   checkout: (overrideTotal?: number) => void;
 };
 
@@ -39,11 +54,97 @@ const CartContext = createContext<CartType>({
   deliveryFee: 0,
   itemCount: 0,
   hasItems: false,
+  appliedCoupon: null,
+  applyCoupon: () => {},
+  removeCoupon: () => {},
   checkout: () => {},
 });
 
+const CART_STORAGE_KEY = "cart_items";
+const COUPON_STORAGE_KEY = "cart_coupon";
+
+const parseStoredCoupon = (value: string): Coupon | null => {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof (parsed as Coupon).code === "string" &&
+      typeof (parsed as Coupon).type === "string" &&
+      typeof (parsed as Coupon).value === "number"
+    ) {
+      return parsed as Coupon;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
 export const CartProvider = ({ children }: PropsWithChildren) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const loadCart = async () => {
+      try {
+        const savedItems = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        const savedCoupon = await AsyncStorage.getItem(COUPON_STORAGE_KEY);
+
+        if (savedItems) {
+          setItems(JSON.parse(savedItems));
+        }
+
+        if (savedCoupon) {
+          setAppliedCoupon(parseStoredCoupon(savedCoupon));
+        }
+      } catch (error) {
+        console.log("Failed to load cart state", error);
+      } finally {
+        setHydrated(true);
+      }
+    };
+
+    loadCart();
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const saveCart = async () => {
+      try {
+        await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+      } catch (error) {
+        console.log("Failed to save cart", error);
+      }
+    };
+
+    saveCart();
+  }, [items, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const saveCoupon = async () => {
+      try {
+        if (appliedCoupon) {
+          await AsyncStorage.setItem(
+            COUPON_STORAGE_KEY,
+            JSON.stringify(appliedCoupon),
+          );
+        } else {
+          await AsyncStorage.removeItem(COUPON_STORAGE_KEY);
+        }
+      } catch (error) {
+        console.log("Failed to save coupon", error);
+      }
+    };
+
+    saveCoupon();
+  }, [appliedCoupon, hydrated]);
 
   const router = useRouter();
 
@@ -75,6 +176,7 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
       return [newCartItem, ...currentItems];
     });
   };
+
   // removeItem() and clearCart()
   const removeItem = (itemId: string) => {
     setItems((currentItems) =>
@@ -82,8 +184,24 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
     );
   };
 
-  const clearCart = () => {
+  const applyCoupon = (coupon: Coupon) => {
+    setAppliedCoupon(coupon);
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+  };
+
+  const clearCart = async () => {
     setItems([]);
+    setAppliedCoupon(null);
+
+    try {
+      await AsyncStorage.removeItem(CART_STORAGE_KEY);
+      await AsyncStorage.removeItem(COUPON_STORAGE_KEY);
+    } catch (error) {
+      console.log("Failed to clear cart storage", error);
+    }
   };
 
   // updateQuantity
@@ -137,7 +255,7 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
     const orderItems = items.map((cartItem) => ({
       order_id: order.id,
       product_id: cartItem.product_id,
-      quantity: cartItem.quantity,
+      qunatity: cartItem.quantity,
       size: cartItem.size,
     }));
 
@@ -149,7 +267,8 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
       onError: (error) => {
         Alert.alert(
           "Order Items Error",
-          error?.message || "Your order was saved, but items could not be added.",
+          error?.message ||
+            "Your order was saved, but items could not be added.",
         );
       },
     });
@@ -168,6 +287,9 @@ export const CartProvider = ({ children }: PropsWithChildren) => {
         deliveryFee,
         itemCount,
         hasItems,
+        appliedCoupon,
+        applyCoupon,
+        removeCoupon,
         checkout,
       }}
     >

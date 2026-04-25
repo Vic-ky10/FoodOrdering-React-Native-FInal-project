@@ -2,11 +2,15 @@ import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  Switch
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 
@@ -15,11 +19,15 @@ type CouponType = "percentage" | "fixed";
 export default function Coupons() {
   const [code, setCode] = useState("");
   const [value, setValue] = useState("");
+  const [minimumOrderAmount, setMinimumOrderAmount] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
   const [couponType, setCouponType] = useState<CouponType>("percentage");
   const [loading, setLoading] = useState(false);
+  const [firstOrderOnly , setFirstOrderOnly] = useState(false)
 
   const normalizedCode = code.trim().toUpperCase();
   const numericValue = Number(value);
+  const numericMinimumOrderAmount = Number(minimumOrderAmount);
 
   const previewText = useMemo( () => {
     if(!normalizedCode) return "Coupon Code";
@@ -49,6 +57,19 @@ export default function Coupons() {
       return;
     }
 
+    if (
+      minimumOrderAmount.trim() &&
+      (Number.isNaN(numericMinimumOrderAmount) || numericMinimumOrderAmount < 0)
+    ) {
+      Alert.alert("Validation", "Enter a valid minimum order amount.");
+      return;
+    }
+
+    if (expiresAt.trim() && Number.isNaN(new Date(expiresAt).getTime())) {
+      Alert.alert("Validation", "Enter expiry date in YYYY-MM-DD format.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -57,6 +78,11 @@ export default function Coupons() {
           code: normalizedCode,
           type: couponType,
           value: numericValue,
+          minimum_order_amount: minimumOrderAmount.trim()
+            ? numericMinimumOrderAmount
+            : 0,
+          expires_at: expiresAt.trim() || null,
+          first_order_only : firstOrderOnly,
           active: true,
         },
       ]);
@@ -69,7 +95,10 @@ export default function Coupons() {
       Alert.alert("Success", "Coupon created successfully.");
       setCode("");
       setValue("");
+      setMinimumOrderAmount("");
+      setExpiresAt("");
       setCouponType("percentage");
+      setFirstOrderOnly(false)
     } catch {
       Alert.alert("Error", "Something went wrong while creating the coupon.");
     } finally {
@@ -78,111 +107,172 @@ export default function Coupons() {
   };
 
   return (
-    <View style={styles.screen}>
-      <Text style={styles.pageTitle}>Create Coupon</Text>
-      <Text style={styles.pageSubtitle}>
-        Build promo codes that feel polished and easy to use in the cart.
-      </Text>
 
-      <View style={styles.previewCard}>
-        <View style={styles.previewBadge}>
-          <Text style={styles.previewBadgeText}>
-            {couponType === "percentage" ? "Percent" : "Fixed"}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.screen}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.pageTitle}>Create Coupon</Text>
+        <Text style={styles.pageSubtitle}>
+          Build promo codes that feel polished and easy to use in the cart.
+        </Text>
+
+        <View style={styles.previewCard}>
+          <View style={styles.previewBadge}>
+            <Text style={styles.previewBadgeText}>
+              {couponType === "percentage" ? "Percent" : "Fixed"}
+            </Text>
+          </View>
+          <Text style={styles.previewCode}>{previewText}</Text>
+          <Text style={styles.previewValue}>{valuePreview}</Text>
+          <Text style={styles.previewHint}>
+            This is how the coupon will look to customers inside the cart sheet.
           </Text>
         </View>
-        <Text style={styles.previewCode}>{previewText}</Text>
-        <Text style={styles.previewValue}>{valuePreview}</Text>
-        <Text style={styles.previewHint}>
-          This is how the coupon will look to customers inside the cart sheet.
-        </Text>
-      </View>
 
-      <View style={styles.formCard}>
-        <Text style={styles.label}>Coupon Code</Text>
-        <TextInput
-          style={styles.input}
-          value={code}
-          onChangeText={setCode}
-          placeholder="e.g. SAVE20"
-          autoCapitalize="characters"
-          placeholderTextColor="#9ca3af"
-        />
+        <View style={styles.formCard}>
+          <Text style={styles.label}>Coupon Code</Text>
+          <TextInput
+            style={styles.input}
+            value={code}
+            onChangeText={setCode}
+            placeholder="e.g. SAVE20"
+            autoCapitalize="characters"
+            placeholderTextColor="#9ca3af"
+          />
 
-        <Text style={styles.label}>Coupon Type</Text>
-        <View style={styles.segmentRow}>
-          <Pressable
-            onPress={() => setCouponType("percentage")}
-            style={({ pressed }) => [
-              styles.segmentButton,
-              couponType === "percentage" && styles.segmentButtonActive,
-              pressed && styles.segmentPressed,
-            ]}
-          >
-            <Text
-              style={[
-                styles.segmentText,
-                couponType === "percentage" && styles.segmentTextActive,
+          <Text style={styles.label}>Coupon Type</Text>
+          <View style={styles.segmentRow}>
+            <Pressable
+              onPress={() => setCouponType("percentage")}
+              style={({ pressed }) => [
+                styles.segmentButton,
+                couponType === "percentage" && styles.segmentButtonActive,
+                pressed && styles.segmentPressed,
               ]}
             >
-              Percentage
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setCouponType("fixed")}
-            style={({ pressed }) => [
-              styles.segmentButton,
-              couponType === "fixed" && styles.segmentButtonActive,
-              pressed && styles.segmentPressed,
-            ]}
-          >
-            <Text
-              style={[
-                styles.segmentText,
-                couponType === "fixed" && styles.segmentTextActive,
+              <Text
+                style={[
+                  styles.segmentText,
+                  couponType === "percentage" && styles.segmentTextActive,
+                ]}
+              >
+                Percentage
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setCouponType("fixed")}
+              style={({ pressed }) => [
+                styles.segmentButton,
+                couponType === "fixed" && styles.segmentButtonActive,
+                pressed && styles.segmentPressed,
               ]}
             >
-              Fixed amount
-            </Text>
+              <Text
+                style={[
+                  styles.segmentText,
+                  couponType === "fixed" && styles.segmentTextActive,
+                ]}
+              >
+                Fixed amount
+              </Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.label}>
+            {couponType === "percentage"
+              ? "Discount Value (%)"
+              : "Discount Value ($)"}
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={value}
+            onChangeText={setValue}
+            placeholder={couponType === "percentage" ? "e.g. 20" : "e.g. 50"}
+            keyboardType="numeric"
+            placeholderTextColor="#9ca3af"
+          />
+
+          <Text style={styles.label}>Minimum Order Amount ($)</Text>
+          <TextInput
+            style={styles.input}
+            value={minimumOrderAmount}
+            onChangeText={setMinimumOrderAmount}
+            placeholder="e.g. 100"
+            keyboardType="numeric"
+            placeholderTextColor="#9ca3af"
+          />
+
+          <Text style={styles.label}>Expiry Date</Text>
+          <TextInput
+            style={styles.input}
+            value={expiresAt}
+            onChangeText={setExpiresAt}
+            placeholder="YYYY-MM-DD"
+            autoCapitalize="none"
+            placeholderTextColor="#9ca3af"
+          />
+             
+             <View style = {styles.switchRow}>
+              <View style ={{ flex : 1}}>
+                <Text style = {styles.label}>First Order Only</Text>
+                <Text style = {styles.helperText}>
+                  Only customers with no previous orders can use this coupon
+                </Text>
+              </View>
+               <Switch 
+                 value = {firstOrderOnly} 
+                 onValueChange={setFirstOrderOnly}
+               />
+             </View>
+
+          <Pressable   
+            style={({ pressed }) => [
+              styles.button,
+              pressed && !loading ? styles.buttonPressed : null,
+              loading ? styles.buttonDisabled : null,
+            ]}
+            onPress={createCoupon}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Create Coupon</Text>
+            )}
           </Pressable>
         </View>
-
-        <Text style={styles.label}>
-          {couponType === "percentage" ? "Discount Value (%)" : "Discount Value ($)"}
-        </Text>
-        <TextInput
-          style={styles.input}
-          value={value}
-          onChangeText={setValue}
-          placeholder={couponType === "percentage" ? "e.g. 20" : "e.g. 50"}
-          keyboardType="numeric"
-          placeholderTextColor="#9ca3af"
-        />
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            pressed && !loading ? styles.buttonPressed : null,
-            loading ? styles.buttonDisabled : null,
-          ]}
-          onPress={createCoupon}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Create Coupon</Text>
-          )}
-        </Pressable>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  switchRow: {
+  marginTop: 14,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+},
+
+helperText: {
+  color: "#6b7280",
+  fontSize: 12,
+  lineHeight: 18,
+},
+
   screen: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#f4f1ff",
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
   },
   pageTitle: {
     fontSize: 30,

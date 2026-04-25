@@ -19,22 +19,136 @@ import { supabase } from "@/lib/supabase";
 
 type Coupon = {
   code: string;
-  type: string;
+  type: "percentage" | "fixed";
   value: number;
   active: boolean;
+  minimum_order_amount?: number | null;
+  expires_at?: string | null;
+  first_order_only?: boolean | null;
 };
-
 const formatMoney = (amount: number) => `$${amount.toFixed(2)}`;
 
-const CartScreen = () => {
-  const { items, total, subtotal, deliveryFee, checkout } = useCart();
+const isCouponExpired = (coupon: Coupon) => {
+  if (!coupon.expires_at) return false;
 
-  const [coupon, setCoupon] = useState<Coupon | null>(null);
+  const expiryDate = new Date(coupon.expires_at);
+  if (Number.isNaN(expiryDate.getTime())) return false;
+
+  expiryDate.setHours(23, 59, 59, 999);
+  return expiryDate.getTime() < Date.now();
+};
+const getCouponEligibility = (
+  coupon: Coupon,
+  subtotal: number,
+  hasPlacedOrder = false,
+) => {
+  if (!coupon.active) {
+    return { eligible: false, reason: "This coupon is not active." };
+  }
+  if (isCouponExpired(coupon)) {
+    return { eligible: false, reason: "This coupon has expired." };
+  }
+  if (coupon.first_order_only && hasPlacedOrder) {
+    return {
+      eligible: false,
+      reason: "This coupon is only valid on your first order.",
+    };
+  }
+  const minimumOrderAmount = coupon.minimum_order_amount ?? 0;
+  if (subtotal < minimumOrderAmount) {
+    return {
+      eligible: false,
+      reason: `Add ${formatMoney(minimumOrderAmount - subtotal)} more to use this coupon.`,
+    };
+  }
+
+  return { eligible: true, reason: "" };
+};
+
+const calculateCouponDiscount = (
+  coupon: Coupon | null,
+  subtotal: number,
+  total: number,
+) => {
+  if (!coupon) return 0;
+
+  const rawDiscount =
+    coupon.type === "percentage"
+      ? subtotal * (coupon.value / 100)
+      : coupon.value;
+
+  return Math.min(rawDiscount, total);
+};
+
+const getClosestLockedCoupon = (
+  coupons: Coupon[],
+  subtotal: number,
+  hasPlacedOrder: boolean,
+) => {
+  let closestCoupon: Coupon | null = null;
+  let smallestRemainingAmount = Number.POSITIVE_INFINITY;
+
+  coupons.forEach((coupon) => {
+    if (!coupon.active) return;
+    if (isCouponExpired(coupon)) return;
+    if (coupon.first_order_only && hasPlacedOrder) return;
+
+    const minimumOrderAmount = coupon.minimum_order_amount ?? 0;
+
+    if (minimumOrderAmount <= subtotal) return;
+
+    const remainingAmount = minimumOrderAmount - subtotal;
+
+    if (remainingAmount < smallestRemainingAmount) {
+      smallestRemainingAmount = remainingAmount;
+      closestCoupon = coupon;
+    }
+  });
+
+  return closestCoupon;
+};
+
+const CartScreen = () => {
+  const {
+    items,
+    total,
+    subtotal,
+    deliveryFee,
+    checkout,
+    appliedCoupon,
+    applyCoupon: applySharedCoupon,
+    removeCoupon: removeSharedCoupon,
+  } = useCart();
+
   const [couponCode, setCouponCode] = useState("");
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [hasPlacedOrder, setHasPlacedOrder] = useState(false);
+
   const [loadingCoupons, setLoadingCoupons] = useState(false);
   const [showCoupons, setShowCoupons] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkPreviousOrders = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      if (!error) {
+        setHasPlacedOrder((data?.length ?? 0) > 0);
+      }
+    };
+
+    checkPreviousOrders();
+  }, []);
 
   const fetchCoupons = async () => {
     try {
@@ -63,16 +177,35 @@ const CartScreen = () => {
     fetchCoupons();
   }, []);
 
+  useEffect(() => {
+    setCouponCode(appliedCoupon?.code ?? "");
+  }, [appliedCoupon]);
+
+  useEffect(() => {
+    if (!appliedCoupon) return;
+
+    const eligibility = getCouponEligibility(
+      appliedCoupon,
+      subtotal,
+      hasPlacedOrder,
+    );
+    if (eligibility.eligible) return;
+
+    removeSharedCoupon();
+    setCouponCode("");
+    Alert.alert("Coupon Removed", eligibility.reason);
+  }, [appliedCoupon, subtotal, hasPlacedOrder, removeSharedCoupon]);
+                           
   const appliedDiscount = useMemo<number>(() => {
-    if (!coupon) return 0;
-
-    const rawDiscount =
-      coupon.type === "percentage"
-        ? subtotal * (coupon.value / 100)
-        : coupon.value;
-
-    return Math.min(rawDiscount, total);
-  }, [coupon, subtotal, total]);
+    if (!appliedCoupon) return 0;
+    if (
+      !getCouponEligibility(appliedCoupon, subtotal, hasPlacedOrder).eligible
+    ) {
+      return 0;
+    }
+                   
+    return calculateCouponDiscount(appliedCoupon, subtotal, total);
+  }, [appliedCoupon, subtotal, total, hasPlacedOrder]);
 
   const finalTotal = Math.max(total - appliedDiscount, 0);
 
@@ -81,8 +214,10 @@ const CartScreen = () => {
     let bestDiscount = 0;
 
     coupons.forEach((item) => {
-      const discount =
-        item.type === "percentage" ? subtotal * (item.value / 100) : item.value;
+      if (!getCouponEligibility(item, subtotal, hasPlacedOrder).eligible)
+        return;
+
+      const discount = calculateCouponDiscount(item, subtotal, total);
 
       if (discount > bestDiscount) {
         bestDiscount = discount;
@@ -91,26 +226,37 @@ const CartScreen = () => {
     });
 
     return best;
-  }, [coupons, subtotal]);
+  }, [coupons, subtotal, total, hasPlacedOrder]);
 
   const bestCouponDiscount = useMemo<number>(() => {
     if (!bestCoupon) return 0;
 
-    const rawDiscount =
-      bestCoupon.type === "percentage"
-        ? subtotal * (bestCoupon.value / 100)
-        : bestCoupon.value;
-
-    return Math.min(rawDiscount, total);
+    return calculateCouponDiscount(bestCoupon, subtotal, total);
   }, [bestCoupon, subtotal, total]);
 
-  const applyCoupon = (item: Coupon | null) => {
+  const lockedCoupon = useMemo<Coupon | null>(() => {
+    if (appliedCoupon) return null;
+
+    return getClosestLockedCoupon(coupons, subtotal, hasPlacedOrder);
+  }, [appliedCoupon, coupons, subtotal, hasPlacedOrder]);
+
+  const lockedCouponRemainingAmount = lockedCoupon?.minimum_order_amount
+    ? lockedCoupon.minimum_order_amount - subtotal
+    : 0;
+
+  const handleApplyCoupon = (item: Coupon | null) => {
     if (!item) {
       Alert.alert("Coupon", "Coupon not available.");
       return;
     }
 
-    setCoupon(item);
+    const eligibility = getCouponEligibility(item, subtotal, hasPlacedOrder);
+    if (!eligibility.eligible) {
+      Alert.alert("Coupon Not Eligible", eligibility.reason);
+      return;
+    }
+
+    applySharedCoupon(item);
     setCouponCode(item.code);
     setShowCoupons(false);
   };
@@ -132,11 +278,11 @@ const CartScreen = () => {
       return;
     }
 
-    applyCoupon(foundCoupon);
+    handleApplyCoupon(foundCoupon);
   };
 
-  const removeCoupon = () => {
-    setCoupon(null);
+  const handleRemoveCoupon = () => {
+    removeSharedCoupon();
     setCouponCode("");
   };
 
@@ -145,10 +291,28 @@ const CartScreen = () => {
       ? `${item.value}% OFF`
       : `${formatMoney(item.value)} OFF`;
 
+  const renderCouponMeta = (item: Coupon) => {
+    const details = [];
+
+    if (item.minimum_order_amount && item.minimum_order_amount > 0) {
+      details.push(`Min order ${formatMoney(item.minimum_order_amount)}`);
+    }
+
+    if (item.expires_at) {
+      details.push(`Expires ${new Date(item.expires_at).toLocaleDateString()}`);
+    }
+
+    if (item.first_order_only) {
+      details.push("First order only");
+    }
+
+    return details.join(" • ");
+  };
+
   const EmptyCart = () => (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconWrap}>
-        <FontAwesome name="shopping-cart" size={30} color="#8b5cf6" />
+        <FontAwesome name="shopping-cart" size={30} color={palette.primary} />
       </View>
       <Text style={styles.emptyTitle}>Your cart is empty</Text>
       <Text style={styles.emptyText}>
@@ -179,9 +343,7 @@ const CartScreen = () => {
             <View style={styles.summaryRow}>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>
-                  {formatMoney(subtotal)}
-                </Text>
+                <Text style={styles.summaryValue}>{formatMoney(subtotal)}</Text>
               </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryLabel}>Delivery</Text>
@@ -200,24 +362,31 @@ const CartScreen = () => {
                 <Text style={styles.sectionTitle}>Coupons</Text>
                 <Pressable onPress={fetchCoupons} style={styles.refreshButton}>
                   {loadingCoupons ? (
-                    <ActivityIndicator size="small" color="#7c3aed" />
+                    <ActivityIndicator size="small" color={palette.primary} />
                   ) : (
                     <Text style={styles.refreshText}>Refresh</Text>
                   )}
                 </Pressable>
               </View>
 
-              {coupon ? (
+              {appliedCoupon ? (
                 <View style={styles.appliedCouponCard}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.appliedCouponLabel}>Applied coupon</Text>
-                    <Text style={styles.appliedCouponCode}>{coupon.code}</Text>
+                    <Text style={styles.appliedCouponLabel}>
+                      Applied coupon
+                    </Text>
+                    <Text style={styles.appliedCouponCode}>
+                      {appliedCoupon.code}
+                    </Text>
                     <Text style={styles.appliedCouponValue}>
                       You saved {formatMoney(appliedDiscount)}
                     </Text>
                   </View>
 
-                  <Pressable onPress={removeCoupon} style={styles.removeChip}>
+                  <Pressable
+                    onPress={handleRemoveCoupon}
+                    style={styles.removeChip}
+                  >
                     <Text style={styles.removeChipText}>Remove</Text>
                   </Pressable>
                 </View>
@@ -226,7 +395,9 @@ const CartScreen = () => {
                   {bestCoupon ? (
                     <View style={styles.bestCouponCard}>
                       <View style={styles.bestCouponBadge}>
-                        <Text style={styles.bestCouponBadgeText}>Best pick</Text>
+                        <Text style={styles.bestCouponBadgeText}>
+                          Best pick
+                        </Text>
                       </View>
                       <Text style={styles.bestCouponCode}>
                         {bestCoupon.code}
@@ -237,7 +408,7 @@ const CartScreen = () => {
                       </Text>
 
                       <Pressable
-                        onPress={() => applyCoupon(bestCoupon)}
+                        onPress={() => handleApplyCoupon(bestCoupon)}
                         style={styles.applyBestButton}
                       >
                         <Text style={styles.applyBestButtonText}>
@@ -247,16 +418,29 @@ const CartScreen = () => {
                     </View>
                   ) : null}
 
+                  {lockedCoupon && lockedCouponRemainingAmount > 0 ? (
+                    <View style={styles.unlockCard}>
+                      <Text style={styles.unlockTitle}>Almost there</Text>
+                      <Text style={styles.unlockText}>
+                        Add {formatMoney(lockedCouponRemainingAmount)} more to
+                        unlock {lockedCoupon.code}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   <View style={styles.codeRow}>
                     <TextInput
                       placeholder="Enter coupon code"
                       value={couponCode}
                       onChangeText={setCouponCode}
                       autoCapitalize="characters"
-                      placeholderTextColor="#9ca3af"
+                      placeholderTextColor={palette.muted}
                       style={styles.codeInput}
                     />
-                    <Pressable onPress={applyCouponCode} style={styles.codeButton}>
+                    <Pressable
+                      onPress={applyCouponCode}
+                      style={styles.codeButton}
+                    >
                       <Text style={styles.codeButtonText}>Apply</Text>
                     </Pressable>
                   </View>
@@ -309,6 +493,7 @@ const CartScreen = () => {
       <Modal
         isVisible={showCoupons}
         onBackdropPress={() => setShowCoupons(false)}
+        onBackButtonPress={() => setShowCoupons(false)}
         style={styles.modal}
       >
         <View style={styles.modalSheet}>
@@ -322,12 +507,14 @@ const CartScreen = () => {
 
           {loadingCoupons ? (
             <View style={styles.loadingState}>
-              <ActivityIndicator size="large" color="#7c3aed" />
+              <ActivityIndicator size="large" color={palette.primary} />
               <Text style={styles.loadingText}>Loading coupons...</Text>
             </View>
           ) : coupons.length === 0 ? (
             <View style={styles.loadingState}>
-              <Text style={styles.loadingText}>No active coupons right now.</Text>
+              <Text style={styles.loadingText}>
+                No active coupons right now.
+              </Text>
             </View>
           ) : (
             <FlatList
@@ -337,7 +524,7 @@ const CartScreen = () => {
               contentContainerStyle={{ gap: 12, paddingBottom: 8 }}
               renderItem={({ item }) => (
                 <Pressable
-                  onPress={() => applyCoupon(item)}
+                  onPress={() => handleApplyCoupon(item)}
                   style={({ pressed }) => [
                     styles.couponCard,
                     pressed && styles.couponCardPressed,
@@ -356,7 +543,8 @@ const CartScreen = () => {
 
                   <Text style={styles.couponCode}>{item.code}</Text>
                   <Text style={styles.couponHint}>
-                    Tap to apply this coupon to your cart.
+                    {renderCouponMeta(item) ||
+                      "Tap to apply this coupon to your cart."}
                   </Text>
                 </Pressable>
               )}
@@ -368,12 +556,41 @@ const CartScreen = () => {
       <StatusBar style={Platform.OS === "ios" ? "light" : "auto"} />
     </View>
   );
+} ; 
+
+const palette = {
+  background: "#f4f1ff",
+  surface: "#ffffff",
+  surfaceWarm: "#faf8ff",
+  border: "#e9e3ff",
+  borderSoft: "#ede9fe",
+
+  primary: "#7c3aed",
+  primaryDark: "#5b21b6",
+  primarySoft: "#f3e8ff",
+  primaryMuted: "#a78bfa",
+
+  success: "#16a34a",
+  successDark: "#166534",
+  successSoft: "#dcfce7",
+  successBorder: "#bbf7d0",
+
+  danger: "#dc2626",
+  text: "#0069fbff",
+  textStrong: "#111827",
+  muted: "#6b7280",
+  mutedSoft: "#f9fafb",
+  dark: "#181533ff",
+  darkMuted: "#ddd6fe",
+  disabled: "#9ca3af",
+  inverse: "#ffffff",
 };
+
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#f4f1ff",
+    backgroundColor: palette.background,
   },
   listContent: {
     padding: 16,
@@ -389,11 +606,11 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 30,
     fontWeight: "800",
-    color: "#111827",
+    color: palette.textStrong,
   },
   pageSubtitle: {
     fontSize: 14,
-    color: "#6b7280",
+    color: palette.muted,
   },
   summaryRow: {
     flexDirection: "row",
@@ -401,30 +618,30 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
+    backgroundColor: palette.surface,
+    borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "#e9e3ff",
+    borderColor: palette.border,
   },
   summaryLabel: {
     fontSize: 12,
-    color: "#6b7280",
+    color: palette.muted,
     marginBottom: 8,
   },
   summaryValue: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#111827",
+    color: palette.textStrong,
   },
   couponSection: {
-    backgroundColor: "#ffffff",
-    borderRadius: 22,
+    backgroundColor: palette.surface,
+    borderRadius: 20,
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: "#e9e3ff",
+    borderColor: palette.border,
   },
   sectionTitleRow: {
     flexDirection: "row",
@@ -434,97 +651,97 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#111827",
+    color: palette.textStrong,
   },
   refreshButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "#f4efff",
+    backgroundColor: palette.primarySoft,
   },
   refreshText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#7c3aed",
+    color: palette.primaryDark,
   },
   appliedCouponCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 14,
-    backgroundColor: "#effaf4",
+    backgroundColor: palette.successSoft,
     borderWidth: 1,
-    borderColor: "#ccefd8",
+    borderColor: palette.successBorder,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
   appliedCouponLabel: {
     fontSize: 12,
-    color: "#166534",
+    color: palette.successDark,
     marginBottom: 4,
   },
   appliedCouponCode: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#14532d",
+    color: palette.successDark,
   },
   appliedCouponValue: {
     marginTop: 4,
     fontSize: 13,
-    color: "#166534",
+    color: palette.successDark,
     fontWeight: "600",
   },
   removeChip: {
-    backgroundColor: "#dcfce7",
+    backgroundColor: palette.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
   },
   removeChipText: {
-    color: "#166534",
+    color: palette.successDark,
     fontWeight: "800",
     fontSize: 12,
   },
   bestCouponCard: {
-    backgroundColor: "#f8f5ff",
-    borderRadius: 18,
+    backgroundColor: palette.surfaceWarm,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#dbcdfd",
+    borderColor: palette.border,
     gap: 6,
   },
   bestCouponBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "#7c3aed",
+    backgroundColor: palette.primary,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
   },
   bestCouponBadgeText: {
-    color: "#ffffff",
+    color: palette.inverse,
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
   bestCouponCode: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#111827",
+    color: palette.textStrong,
     marginTop: 2,
   },
   bestCouponText: {
     fontSize: 13,
-    color: "#4b5563",
+    color: palette.muted,
     lineHeight: 19,
   },
   applyBestButton: {
     marginTop: 8,
-    backgroundColor: "#7c3aed",
+    backgroundColor: palette.primary,
     paddingVertical: 12,
     borderRadius: 14,
     alignItems: "center",
   },
   applyBestButtonText: {
-    color: "#ffffff",
+    color: palette.inverse,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -534,24 +751,24 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     flex: 1,
-    backgroundColor: "#f9fafb",
+    backgroundColor: palette.mutedSoft,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: palette.borderSoft,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: "#111827",
+    color: palette.textStrong,
   },
   codeButton: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: palette.dark,
     paddingHorizontal: 18,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
   codeButtonText: {
-    color: "#ffffff",
+    color: palette.inverse,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -560,15 +777,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: "#f5f3ff",
+    backgroundColor: palette.primarySoft,
   },
   viewCouponsText: {
-    color: "#6d28d9",
+    color: palette.primaryDark,
     fontWeight: "700",
     fontSize: 13,
   },
   errorText: {
-    color: "#dc2626",
+    color: palette.danger,
     fontSize: 13,
     marginTop: 2,
   },
@@ -579,8 +796,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   finalCard: {
-    backgroundColor:  "#1f172dff",
-    borderRadius: 22,
+    backgroundColor: palette.dark,
+    borderRadius: 20,
     padding: 16,
   },
   finalRow: {
@@ -589,36 +806,36 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   finalLabel: {
-    color: "#e5e7eb",
+    color: palette.darkMuted,
     fontSize: 14,
     fontWeight: "600",
   },
   finalValue: {
-    color: "#ffffff",
+    color: palette.inverse,
     fontSize: 24,
     fontWeight: "900",
   },
   finalNote: {
     marginTop: 8,
-    color: "#cbd5e1",
+    color: palette.darkMuted,
     fontSize: 12,
     lineHeight: 18,
   },
   checkoutButton: {
-    backgroundColor: "#ef4444",
+    backgroundColor: palette.primary,
     paddingVertical: 16,
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: "center",
   },
   checkoutPressed: {
     opacity: 0.88,
   },
   checkoutDisabled: {
-    backgroundColor: "#9ca3af",
+    backgroundColor: palette.disabled,
   },
-  
+
   checkoutText: {
-    color: "#ffffff",
+    color: palette.inverse,
     fontSize: 16,
     fontWeight: "900",
   },
@@ -633,7 +850,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "#efe7ff",
+    backgroundColor: palette.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
@@ -641,12 +858,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#111827",
+    color: palette.textStrong,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: "#6b7280",
+    color: palette.muted,
     textAlign: "center",
     lineHeight: 22,
   },
@@ -655,7 +872,7 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   modalSheet: {
-    backgroundColor: "#ffffff",
+    backgroundColor: palette.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 18,
@@ -667,7 +884,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 5,
     borderRadius: 999,
-    backgroundColor: "#d1d5db",
+    backgroundColor: palette.border,
     alignSelf: "center",
     marginBottom: 14,
   },
@@ -677,12 +894,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#111827",
+    color: palette.textStrong,
   },
   modalSubtitle: {
     marginTop: 4,
     fontSize: 13,
-    color: "#6b7280",
+    color: palette.muted,
   },
   loadingState: {
     paddingVertical: 28,
@@ -691,14 +908,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   loadingText: {
-    color: "#6b7280",
+    color: palette.muted,
     fontSize: 13,
   },
   couponCard: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: palette.surfaceWarm,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 18,
+    borderColor: palette.borderSoft,
+    borderRadius: 16,
     padding: 14,
     gap: 8,
   },
@@ -713,19 +930,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   couponBadge: {
-    backgroundColor: "#ede9fe",
+    backgroundColor: palette.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
   },
   couponBadgeText: {
-    color: "#6d28d9",
+    color: palette.primaryDark,
     fontSize: 11,
     fontWeight: "800",
   },
   couponSaveText: {
     flexShrink: 1,
-    color: "#111827",
+    color: palette.textStrong,
     fontSize: 13,
     fontWeight: "700",
     textAlign: "right",
@@ -733,14 +950,34 @@ const styles = StyleSheet.create({
   couponCode: {
     fontSize: 20,
     fontWeight: "900",
-    color: "#111827",
-    letterSpacing: 0.6,
+    color: palette.textStrong,
+    letterSpacing: 0,
   },
   couponHint: {
     fontSize: 12,
-    color: "#6b7280",
+    color: palette.muted,
     lineHeight: 18,
+  }, 
+  unlockCard: {
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: 16,
+    padding: 14,
+    gap: 4,
   },
+  unlockTitle: {
+    color: palette.primaryDark,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  unlockText: {
+    color: palette.primaryDark,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+
 });
 
 export default CartScreen;
